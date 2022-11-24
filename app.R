@@ -3,13 +3,12 @@ library(readxl)
 library(xlsx)
 library(tidyverse)
 
-tutor.name <- c("Martina", "Harald", "Bianca", "Anna", "Ebru", "Eva")
+tutor.name <- c("Harald", "Bianca", "Anna", "Ebru", "Eva", "Martina")
 OBAC <- c("POB 3", "POB 2", "POB 1")
 MPH <- c("MPH 1", "MPH 2")
 POM <- c("POM 21", "POM 22")
 ANP <- c("ANP 21", "ANP 22")
 RKH <- c("RKH")
-tutor <- "Martina"
 
 kststelle <- list(OBAC, MPH, POM, ANP, RKH)
 names(kststelle) <- c("OBAC", "MPH", "PW", "ANP", "RKH")
@@ -20,7 +19,7 @@ runApp(
       titlePanel("Zeiterfassung aus monatlicher Einteilung generieren"),
       sidebarLayout(
         sidebarPanel(
-          fileInput('file1', 'Choose xlsx file',
+          fileInput('file1', 'Wähle Monatsliste (.xlsx)',
                     accept = c(".xlsx")
           ),
           selectInput("tutor", "Wer bist du?", tutor.name),
@@ -37,21 +36,17 @@ runApp(
         
         inFile <- input$file1
         
-        my_data <- read_excel(inFile$datapath, 1)
-        
-        colnames <- as.character(my_data[2, ])
-        colnames[8] <- "Tutor"
-        coltype <- rep("skip", ncol(my_data))
-        coltype[2] <- "date"
-        coltype[c(3, 4, 8)] <- "guess"
-        df_clean <- read_excel(inFile$datapath, sheet = 1, col_names = colnames, col_types = coltype) %>%
-          filter(Tutor == input$tutor) %>%
-          separate(Zeit, c("start", "end"), " - ")
-        
-        df_clean$start <- gsub("30", ".5", df_clean$start, fixed = T)
-        df_clean$end <- gsub("30", ".5", df_clean$end, fixed = T)
-        df_clean <- df_clean %>% mutate(duration = as.numeric(end) - (as.numeric(start) - 0.5)) # calculate duration of VHS including 30min before actual start
-        
+        df_clean <- read_excel(inFile$datapath, sheet = 1, skip = 2) %>%
+          select(2, 3, 4, 8) %>%
+          rename(Tutor = "Tutor*in") %>%
+          filter(Tutor == tutor) %>%
+          separate(Zeit, c("start", "end"), " - ") %>%
+          mutate(
+            start = as.numeric(gsub("30", ".5", start, fixed = T)) - 0.5, # calculate duration of VHS including 30min before actual start
+            end = gsub("30", ".5", end, fixed = T),
+            duration = as.numeric(end) - (as.numeric(start))
+            )
+            
         for (i in 1:length(kststelle)) {
           print(kststelle[[i]])
           df_clean$SG[df_clean$SG %in% kststelle[[i]]] <- names(kststelle)[i]
@@ -130,7 +125,7 @@ runApp(
         ordered[2:5] <- c(4, 5, 2, 3)
         final <- joined_wider[, ordered] %>% rename(Start = start_new , Ende = end_new, Dauer = duration_u, Pause = pause_u)
         
-        # change formats to time insetad of decimal numbers
+        # change formats to time instead of decimal numbers
         for (i in 2:ncol(final)) {
           final[[i]] <- paste(floor(final[[i]]), round((final[[i]] - floor(as.numeric(final[[i]]))) * 60), sep = ":")  
         }
